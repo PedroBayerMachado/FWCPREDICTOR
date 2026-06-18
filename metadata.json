@@ -1,0 +1,6 @@
+{
+  "name": "World Cup 2026 Predictor",
+  "description": "Simulador e Palpites da Copa do Mundo FIFA 2026™ com tabela de grupos, simulação manual ou automática de jogos e chaveamento do mata-mata.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
