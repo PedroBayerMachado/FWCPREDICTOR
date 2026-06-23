@@ -64,11 +64,14 @@ export function getInitialMatches(): Match[] {
       const hours = ['14:00', '17:00', '21:00'];
       const timeStr = hours[(pairIndex + groupIndex) % hours.length];
 
+      const t1Obj = groupTeams[pair.t1];
+      const t2Obj = groupTeams[pair.t2];
+      
       matches.push({
         id: matchId++,
         group: groupChar,
-        team1Id: groupTeams[pair.t1].id,
-        team2Id: groupTeams[pair.t2].id,
+        team1Id: t1Obj.id,
+        team2Id: t2Obj.id,
         status: 'scheduled',
         date: dateStr,
         time: timeStr,

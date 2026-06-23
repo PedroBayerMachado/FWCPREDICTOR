@@ -7,6 +7,15 @@
   --breakpoint-xs: 480px;
 }
 
+/* Evita barra de scroll dupla e comportamento de pulo de tela */
+html, body {
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+  height: auto;
+}
+
 @layer utilities {
   /* Animações e Keyframes personalizados */
   @keyframes fadeIn {
@@ -33,6 +42,29 @@
   .scrollbar-none {
     -ms-overflow-style: none;
     scrollbar-width: none;
+  }
+
+  /* Sleek, thin scrollbars to eliminate clutter and dual layout scrolling */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(15, 23, 42, 0.15); /* slate-900 / 0.15 */
+    border-radius: 9999px;
+    border: 1px solid transparent;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(15, 23, 42, 0.35); /* slate-900 / 0.35 */
+  }
+
+  /* For Firefox styling */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(15, 23, 42, 0.15) transparent;
   }
 }
 

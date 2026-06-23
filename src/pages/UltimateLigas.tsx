@@ -4,12 +4,13 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
+import html2canvas from 'html2canvas';
 import { LEAGUES_DATA, LeaguePlayer } from '../data/leaguesPlayers';
 import { Formation, FormationSlot, FORMATIONS } from './UltimateTeam';
 import { 
   Trophy, Users, Shield, Plus, X, RotateCcw, Save, Trash2, 
   Check, Star, Sparkles, AlertCircle, Copy, HelpCircle,
-  TrendingUp, CircleDollarSign, Compass, Info
+  TrendingUp, CircleDollarSign, Compass, Info, Camera, Download
 } from 'lucide-react';
 
 export const UltimateLigas: React.FC = () => {
@@ -36,6 +37,7 @@ export const UltimateLigas: React.FC = () => {
   const [notifications, setNotifications] = useState<{ id: string; message: string; type: 'success' | 'error' | 'warning' | 'info' }[]>([]);
   const [showClearConfirm, setShowClearConfirm] = useState<boolean>(false);
   const [exportedText, setExportedText] = useState<string | null>(null);
+  const [isExportingImage, setIsExportingImage] = useState<boolean>(false);
   const [editingJerseyIndex, setEditingJerseyIndex] = useState<number | null>(null);
   const [tempJerseyNum, setTempJerseyNum] = useState<string>('');
 
@@ -108,6 +110,12 @@ export const UltimateLigas: React.FC = () => {
       else if (activeLeagueId === 'sudamericana') setJerseyColor('#64748b'); // Slate
       else if (activeLeagueId === 'premier_league') setJerseyColor('#a855f7'); // Purple
       else if (activeLeagueId === 'la_liga') setJerseyColor('#ef4444'); // Red
+      else if (activeLeagueId === 'selecao_brasil') setJerseyColor('#facc15'); // Amarelo Canarinho
+      else if (activeLeagueId === 'selecao_franca') setJerseyColor('#1e40af'); // Azul de France
+      else if (activeLeagueId === 'selecao_inglaterra') setJerseyColor('#e2e8f0'); // Branco Inglês
+      else if (activeLeagueId === 'selecao_espanha') setJerseyColor('#dc2626'); // Vermelho Fúria
+      else if (activeLeagueId === 'selecao_argentina') setJerseyColor('#38bdf8'); // Celeste
+      else if (activeLeagueId === 'selecao_portugal') setJerseyColor('#047857'); // Verde Rubro
       else setJerseyColor('#1e293b'); // Dark
     }
 
@@ -319,6 +327,504 @@ export const UltimateLigas: React.FC = () => {
       });
   };
 
+  // Exportar para Imagem usando canvas de alta performance
+  const exportToImage = () => {
+    setIsExportingImage(true);
+    addNotification('Renderizando imagem HD da sua escalação, aguarde...', 'info');
+
+    try {
+      const scale = 2.5; // High-DPI super-sampling
+      const canvas = document.createElement('canvas');
+      canvas.width = 800 * scale;
+      canvas.height = 1000 * scale;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        addNotification('Falha ao iniciar o sistema gráfico para criar PNG. ⚠️', 'error');
+        setIsExportingImage(false);
+        return;
+      }
+
+      ctx.scale(scale, scale);
+
+      // --- Background (Dark stadium theme) ---
+      const bgGradient = ctx.createRadialGradient(400, 500, 100, 400, 500, 700);
+      bgGradient.addColorStop(0, '#0f172a');
+      bgGradient.addColorStop(0.5, '#020617');
+      bgGradient.addColorStop(1, '#050508');
+      ctx.fillStyle = bgGradient;
+      ctx.fillRect(0, 0, 800, 1000);
+
+      // Blueprint lines
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.03)';
+      ctx.lineWidth = 1;
+      for (let x = 0; x < 800; x += 40) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, 1000);
+        ctx.stroke();
+      }
+      for (let y = 0; y < 1000; y += 40) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(800, y);
+        ctx.stroke();
+      }
+
+      // --- Pitch ---
+      const marginPad = 40;
+      const fieldWidth = 800 - marginPad * 2;
+      const fieldHeight = 1000 - marginPad * 2 - 165;
+      const fieldY = 155;
+
+      // Glow out of pitch
+      ctx.save();
+      ctx.shadowColor = 'rgba(59, 130, 246, 0.1)';
+      ctx.shadowBlur = 30;
+
+      const pitchGrad = ctx.createRadialGradient(400, fieldY + fieldHeight/2, 60, 400, fieldY + fieldHeight/2, 530);
+      pitchGrad.addColorStop(0, '#05162e'); // Deep soccer pitch theme blue
+      pitchGrad.addColorStop(0.4, '#020b18');
+      pitchGrad.addColorStop(1, '#010204');
+      ctx.fillStyle = pitchGrad;
+      ctx.fillRect(marginPad, fieldY, fieldWidth, fieldHeight);
+      ctx.restore();
+
+      // Grass stripes
+      ctx.fillStyle = '#ffffff';
+      for (let i = 0; i < 15; i++) {
+        const stripeY = fieldY + (i * (fieldHeight / 15));
+        const stripeH = fieldHeight / 15;
+        if (i % 2 === 0) {
+          ctx.save();
+          ctx.globalAlpha = 0.012;
+          ctx.fillRect(marginPad, stripeY, fieldWidth, stripeH);
+          ctx.restore();
+        }
+      }
+
+      // Pitch layout lines
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(marginPad, fieldY, fieldWidth, fieldHeight);
+
+      // Middle line
+      ctx.beginPath();
+      ctx.moveTo(marginPad, fieldY + fieldHeight / 2);
+      ctx.lineTo(marginPad + fieldWidth, fieldY + fieldHeight / 2);
+      ctx.stroke();
+
+      // Center Circle
+      ctx.beginPath();
+      ctx.arc(400, fieldY + fieldHeight / 2, 80, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Center spot
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.beginPath();
+      ctx.arc(400, fieldY + fieldHeight / 2, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Penalty box top
+      ctx.strokeRect(400 - 160, fieldY, 320, 110);
+      ctx.strokeRect(400 - 70, fieldY, 140, 40);
+      ctx.beginPath();
+      ctx.arc(400, fieldY + 95, 55, 0.15 * Math.PI, 0.85 * Math.PI);
+      ctx.stroke();
+
+      // Penalty box bottom
+      ctx.strokeRect(400 - 160, fieldY + fieldHeight - 110, 320, 110);
+      ctx.strokeRect(400 - 70, fieldY + fieldHeight - 40, 140, 40);
+      ctx.beginPath();
+      ctx.arc(400, fieldY + fieldHeight - 95, 55, 1.15 * Math.PI, 1.85 * Math.PI);
+      ctx.stroke();
+
+      // Trophy Icon Helper
+      const drawTrophyIconLigas = (c: CanvasRenderingContext2D, cx: number, cy: number, size: number) => {
+        c.save();
+        c.fillStyle = '#fbbf24'; // Gold
+        c.strokeStyle = '#d97706';
+        c.lineWidth = 1.5;
+        
+        c.beginPath();
+        c.moveTo(cx - size, cy - size);
+        c.lineTo(cx + size, cy - size);
+        c.quadraticCurveTo(cx + size, cy + size * 0.3, cx + size * 0.4, cy + size * 0.8);
+        c.lineTo(cx - size * 0.4, cy + size * 0.8);
+        c.quadraticCurveTo(cx - size, cy + size * 0.3, cx - size, cy - size);
+        c.closePath();
+        c.fill();
+        c.stroke();
+        
+        c.beginPath();
+        c.fillRect(cx - size * 0.15, cy + size * 0.6, size * 0.3, size * 0.4);
+        c.fillRect(cx - size * 0.6, cy + size * 0.95, size * 1.2, size * 0.25);
+        c.fill();
+        
+        c.beginPath();
+        c.arc(cx - size * 1.05, cy - size * 0.35, size * 0.45, 0, Math.PI * 2);
+        c.strokeStyle = '#fbbf24';
+        c.lineWidth = 2;
+        c.stroke();
+        
+        c.beginPath();
+        c.arc(cx + size * 1.05, cy - size * 0.35, size * 0.45, 0, Math.PI * 2);
+        c.stroke();
+        
+        c.restore();
+      };
+
+      // Draw Jersey Helper
+      const drawJerseyLigas = (c: CanvasRenderingContext2D, cx: number, cy: number, mainColor: string, jNum: string) => {
+        c.save();
+        let accentColor = '#ffffff';
+        if (mainColor === '#ffffff') accentColor = '#1e3a8a';
+        else if (mainColor === '#10b981') accentColor = '#fbbf24';
+        else if (mainColor === '#ef4444') accentColor = '#ffffff';
+        else if (mainColor === '#3b82f6') accentColor = '#fbbf24';
+        else if (mainColor === '#f59e0b') accentColor = '#1e293b';
+        else accentColor = '#ffffff';
+
+        c.beginPath();
+        c.moveTo(cx - 4, cy - 12);
+        c.lineTo(cx + 4, cy - 12);
+        c.lineTo(cx + 9, cy - 12);
+        c.lineTo(cx + 17, cy - 5);
+        c.lineTo(cx + 13, cy - 1);
+        c.lineTo(cx + 9, cy - 4);
+        c.lineTo(cx + 9, cy + 12);
+        c.lineTo(cx - 9, cy + 12);
+        c.lineTo(cx - 9, cy - 4);
+        c.lineTo(cx - 13, cy - 1);
+        c.lineTo(cx - 17, cy - 5);
+        c.lineTo(cx - 9, cy - 12);
+        c.closePath();
+
+        c.shadowColor = 'rgba(0, 0, 0, 0.4)';
+        c.shadowBlur = 6;
+        c.shadowOffsetY = 3;
+        c.fillStyle = mainColor;
+        c.fill();
+
+        c.shadowColor = 'transparent';
+        c.shadowBlur = 0;
+        c.shadowOffsetY = 0;
+
+        // cuffs
+        c.lineWidth = 1.8;
+        c.strokeStyle = accentColor;
+        c.beginPath();
+        c.moveTo(cx - 17, cy - 5);
+        c.lineTo(cx - 13, cy - 1);
+        c.stroke();
+        c.beginPath();
+        c.moveTo(cx + 13, cy - 1);
+        c.lineTo(cx + 17, cy - 5);
+        c.stroke();
+
+        // neck
+        c.beginPath();
+        c.moveTo(cx - 4, cy - 12);
+        c.lineTo(cx, cy - 8);
+        c.lineTo(cx + 4, cy - 12);
+        c.stroke();
+
+        // stripes
+        c.globalAlpha = 0.2;
+        c.fillStyle = accentColor;
+        c.fillRect(cx - 1.5, cy - 8, 3, 20);
+        c.globalAlpha = 1.0;
+
+        // Jersey Chest Squad Number
+        c.font = '900 10.5px "JetBrains Mono", monospace';
+        c.fillStyle = mainColor === '#ffffff' ? '#0f172a' : '#ffffff';
+        c.textAlign = 'center';
+        c.textBaseline = 'middle';
+        c.fillText(jNum, cx, cy + 2.5);
+
+        c.restore();
+      };
+
+      // Header Glass panel
+      ctx.save();
+      const headX = marginPad;
+      const headY = 24;
+      const headW = fieldWidth;
+      const headH = 112;
+
+      const headGrad = ctx.createLinearGradient(headX, headY, headX, headY + headH);
+      headGrad.addColorStop(0, 'rgba(15, 23, 42, 0.95)');
+      headGrad.addColorStop(1, 'rgba(30, 41, 59, 0.85)');
+      ctx.fillStyle = headGrad;
+
+      ctx.beginPath();
+      ctx.roundRect(headX, headY, headW, headH, 6);
+      ctx.fill();
+
+      ctx.strokeStyle = teamRating >= 90 ? 'rgba(251, 191, 36, 0.35)' : 'rgba(255, 255, 255, 0.08)';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+
+      drawTrophyIconLigas(ctx, 400, 46, 11);
+
+      ctx.textAlign = 'center';
+      ctx.shadowColor = jerseyColor;
+      ctx.shadowBlur = 10;
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'italic 900 24px "Inter", sans-serif';
+      
+      const textToDraw = (teamName || 'ESQUADRÃO EXTRAORDINÁRIO').toUpperCase();
+      ctx.fillText(textToDraw, 400, 83);
+
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+
+      // Subtitle information
+      const leagueName = LEAGUES_DATA[activeLeagueId]?.name || 'ULTIMATE LIGAS';
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '900 9px monospace';
+      ctx.fillText(`${leagueName.toUpperCase()}   •   ESQUEMA: ${formation}   •   GERAL: ${teamRating} GER   •   ENTROSAMENTO: ${teamChemistry}/100`, 400, 108);
+      ctx.restore();
+
+      // Draw FUT Shield Helper
+      const drawShieldPath = (c: CanvasRenderingContext2D, cx: number, cy: number, w: number, h: number) => {
+        const rx = cx - w / 2;
+        const ry = cy - h / 2;
+        const r = 6;
+        c.beginPath();
+        c.moveTo(rx, ry + r * 1.5);
+        c.lineTo(rx + r * 1.5, ry);
+        c.lineTo(rx + w - r * 1.5, ry);
+        c.lineTo(rx + w, ry + r * 1.5);
+        c.lineTo(rx + w, ry + h * 0.72);
+        c.lineTo(rx + w / 2, ry + h);
+        c.lineTo(rx, ry + h * 0.72);
+        c.closePath();
+      };
+
+      // Draw each slots
+      slots.forEach((slot) => {
+        const topPct = parseFloat(slot.top);
+        const leftPct = parseFloat(slot.left);
+
+        const x = marginPad + (leftPct / 100) * fieldWidth;
+        const y = fieldY + (topPct / 100) * fieldHeight;
+
+        const player = selectedSquad[slot.index]
+          ? LEAGUES_DATA[activeLeagueId]?.players.find(p => p.id === selectedSquad[slot.index])
+          : null;
+
+        if (player) {
+          const jNum = jerseyNumbers[slot.index] || (slot.index + 1).toString();
+          const cardW = 90;
+          const cardH = 125;
+          const ratingVal = player.rating;
+
+          let borderStroke = jerseyColor;
+          let cardBgGrad = ctx.createLinearGradient(x - cardW/2, y - cardH/2, x + cardW/2, y + cardH/2);
+          let goldGlow = false;
+
+          if (ratingVal >= 90) { // GOLD ELITE
+            borderStroke = '#fbbf24';
+            cardBgGrad.addColorStop(0, '#1c1303');
+            cardBgGrad.addColorStop(0.4, '#3e2908');
+            cardBgGrad.addColorStop(0.75, '#221603');
+            cardBgGrad.addColorStop(1, '#0e0902');
+            goldGlow = true;
+          } else if (ratingVal >= 87) { // SILVER MASTER
+            borderStroke = '#cbd5e1';
+            cardBgGrad.addColorStop(0, '#0f172a');
+            cardBgGrad.addColorStop(0.5, '#1e293b');
+            cardBgGrad.addColorStop(1, '#020617');
+          } else { // BRONZE TEAM PLAYER
+            borderStroke = '#475569';
+            cardBgGrad.addColorStop(0, '#0c0a09');
+            cardBgGrad.addColorStop(0.6, '#1c1917');
+            cardBgGrad.addColorStop(1, '#020101');
+          }
+
+          // Card Shadow
+          ctx.save();
+          ctx.shadowColor = 'rgba(0,0,0,0.45)';
+          ctx.shadowBlur = 14;
+          ctx.shadowOffsetY = 8;
+          
+          drawShieldPath(ctx, x, y, cardW, cardH);
+          ctx.fillStyle = cardBgGrad;
+          ctx.fill();
+          ctx.restore();
+
+          // Gold reflections
+          if (goldGlow) {
+            ctx.save();
+            drawShieldPath(ctx, x, y, cardW, cardH);
+            ctx.clip();
+            
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(251, 191, 36, 0.1)';
+            ctx.lineWidth = 14;
+            ctx.moveTo(x - cardW, y + cardH);
+            ctx.lineTo(x + cardW, y - cardH);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(251, 191, 36, 0.16)';
+            ctx.lineWidth = 4;
+            ctx.moveTo(x - cardW + 18, y + cardH);
+            ctx.lineTo(x + cardW + 18, y - cardH);
+            ctx.stroke();
+            ctx.restore();
+          }
+
+          // Card Border Stroke
+          ctx.save();
+          drawShieldPath(ctx, x, y, cardW, cardH);
+          ctx.strokeStyle = borderStroke;
+          ctx.lineWidth = goldGlow ? 1.8 : 1.2;
+          ctx.stroke();
+          ctx.restore();
+
+          // Attributes
+          ctx.textAlign = 'left';
+          ctx.font = 'italic 900 18px "Inter", sans-serif';
+          ctx.fillStyle = goldGlow ? '#fbbf24' : '#ffffff';
+          ctx.fillText(`${player.rating}`, x - cardW/2 + 9, y - 38);
+
+          ctx.font = '900 8.5px monospace';
+          ctx.fillStyle = player.position === slot.position ? '#22c55e' : '#f59e0b';
+          ctx.fillText(player.position, x - cardW/2 + 9, y - 25);
+
+          ctx.font = '14px "Inter", system-ui, sans-serif';
+          ctx.fillText(player.flag || '🚩', x - cardW/2 + 9, y - 10);
+
+          // Vector jersey
+          drawJerseyLigas(ctx, x + 16, y - 23, jerseyColor, jNum);
+
+          // Divider
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(x - cardW/2 + 8, y + 6);
+          ctx.lineTo(x + cardW/2 - 8, y + 6);
+          ctx.stroke();
+
+          // Glass Name Badge
+          ctx.save();
+          const bW = 76;
+          const bH = 15;
+          const bX = x - bW/2;
+          const bY = y + 12;
+
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.42)';
+          ctx.beginPath();
+          ctx.roundRect(bX, bY, bW, bH, 2);
+          ctx.fill();
+
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+          ctx.lineWidth = 0.8;
+          ctx.stroke();
+
+          ctx.textAlign = 'center';
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'italic 900 9px "Inter", sans-serif';
+          const pLastName = player.name.split(' ').pop()?.toUpperCase() || player.name.toUpperCase();
+          ctx.fillText(pLastName, x, y + 22.5);
+          ctx.restore();
+
+          // Club Details
+          ctx.textAlign = 'center';
+          ctx.fillStyle = '#94a3b8';
+          ctx.font = '700 7.5px "Inter", sans-serif';
+          const shortClub = player.club.length > 14 ? player.club.slice(0, 13) + '...' : player.club;
+          ctx.fillText(shortClub.toUpperCase(), x, y + 35);
+
+          // Gold Coin pill
+          ctx.save();
+          const coinW = 60;
+          const coinH = 11;
+          const coinX = x - coinW/2;
+          const coinY = y + 43;
+
+          ctx.fillStyle = 'rgba(245, 158, 11, 0.11)';
+          ctx.beginPath();
+          ctx.roundRect(coinX, coinY, coinW, coinH, 6);
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(245, 158, 11, 0.22)';
+          ctx.stroke();
+
+          ctx.fillStyle = '#fbbf24';
+          ctx.beginPath();
+          ctx.arc(x - 19, y + 48.5, 4, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#78350f';
+          ctx.font = '900 6px "Inter", sans-serif';
+          ctx.fillText('$', x - 19, y + 50);
+
+          ctx.fillStyle = '#f59e0b';
+          ctx.font = '900 7.5px monospace';
+          ctx.fillText(`$${getPlayerPrice(player.rating)}M GER`, x + 5, y + 51.5);
+          ctx.restore();
+
+        } else {
+          // Empty slot
+          const emptyW = 74;
+          const emptyH = 100;
+
+          ctx.save();
+          ctx.setLineDash([4, 4]);
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+          ctx.lineWidth = 1.35;
+          
+          drawShieldPath(ctx, x, y, emptyW, emptyH);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.015)';
+          drawShieldPath(ctx, x, y, emptyW, emptyH);
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(x, y - 5, 8, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+
+          ctx.font = '200 13px "Inter", sans-serif';
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+          ctx.textAlign = 'center';
+          ctx.fillText('+', x, y - 1);
+
+          ctx.font = '950 8px monospace';
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+          ctx.fillText(slot.label.toUpperCase(), x, y + 18);
+          ctx.restore();
+        }
+      });
+
+      // Show branding bottom
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '900 11px "Inter", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('WORLD CHAMPIONS 2026 • ULTIMATE TEAM', 400, 955);
+      ctx.fillStyle = '#475569';
+      ctx.font = '900 7.5px monospace';
+      ctx.fillText('ESTATÍSTICAS COESAS E INTEGRADAS COM RESULTADOS REAIS DA FIFA', 400, 972);
+
+      // Save DataUrl and download
+      const dataUrl = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.download = `squad_ultimate_ligas_${activeLeagueId}_2026.png`;
+      link.href = dataUrl;
+      link.click();
+
+      addNotification('Imagem da escalação gerada e baixada com sucesso!', 'success');
+    } catch (e) {
+      console.error(e);
+      addNotification('Erro ao criar imagem do campo tático.', 'error');
+    } finally {
+      setIsExportingImage(false);
+    }
+  };
+
   // Filtragem de catálogo
   const filteredPlayers = useMemo(() => {
     const list = LEAGUES_DATA[activeLeagueId]?.players || [];
@@ -402,66 +908,118 @@ export const UltimateLigas: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-2.5">
+          <div className="flex flex-wrap gap-2.5 w-full md:w-auto">
             <button
-              id="clean-squad-btn-ligas"
-              onClick={() => setShowClearConfirm(true)}
-              className="py-2.5 px-4 rounded-sm border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer"
+              id="export-img-btn-ligas"
+              onClick={exportToImage}
+              disabled={isExportingImage}
+              className={`flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4.5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-xs uppercase tracking-wider transition-all cursor-pointer rounded-sm shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 ${
+                isExportingImage ? 'opacity-70 cursor-not-allowed animate-pulse' : ''
+              }`}
+              title="Exportar escalação como pôster em Alta Resolução (PNG)"
             >
-              <Trash2 className="h-3.5 w-3.5" />
-              <span>Limpar Elenco</span>
+              <Camera className="h-3.5 w-3.5" />
+              <span>{isExportingImage ? 'Gerando Imagem...' : 'Exportar Imagem'}</span>
             </button>
             <button
               id="export-text-btn-ligas"
               onClick={exportToText}
-              className="py-2.5 px-4 rounded-sm bg-slate-950 text-white hover:bg-slate-800 text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer shadow-xs"
+              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4.5 py-2.5 bg-white border border-slate-205 hover:bg-slate-50 hover:border-slate-350 text-slate-700 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer rounded-sm shadow-2xs hover:-translate-y-0.5 active:translate-y-0"
+              title="Copiar escalação em formato de texto"
             >
               <Copy className="h-3.5 w-3.5" />
               <span>Exportar Linup</span>
             </button>
+            <button
+              id="clean-squad-btn-ligas"
+              onClick={() => setShowClearConfirm(true)}
+              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4.5 py-2.5 bg-red-50 border border-red-200 hover:bg-red-100 text-red-600 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer rounded-sm hover:-translate-y-0.5 active:translate-y-0"
+              title="Limpar Escalação"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span>Limpar Elenco</span>
+            </button>
           </div>
         </div>
 
-        {/* Liga Famosa Ativa Selector - 7 Ligas */}
-        <div className="space-y-2">
-          <label className="text-[9.5px] font-mono font-black uppercase text-slate-500 tracking-wider">
-            1. SELECIONE A LIGA DE DESEJO (GERENCIA ATLETRAS INDEPENDENTES)
-          </label>
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-            {Object.values(LEAGUES_DATA).map((lg) => {
-              const isActive = activeLeagueId === lg.id;
-              return (
-                <button
-                  key={lg.id}
-                  onClick={() => setActiveLeagueId(lg.id)}
-                  className={`p-3 rounded-sm border text-left transition-all duration-200 cursor-pointer flex flex-col justify-between h-[82px] ${
-                    isActive 
-                      ? 'border-slate-950 bg-slate-950 text-white ring-2 ring-slate-950/25 shadow-md scale-102' 
-                      : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-350 text-slate-800'
-                  }`}
-                >
-                  <div className="text-xl leading-none">{lg.emoji}</div>
-                  <div>
-                    <h3 className="font-display font-extrabold text-[11px] leading-tight select-none truncate">
-                      {lg.name}
-                    </h3>
-                    <span className={`text-[8px] font-mono font-bold uppercase mt-0.5 inline-block px-1 rounded-xs ${
-                      isActive ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'
-                    }`}>
-                      40 Craques
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
+        {/* Seleção de Liga / Convocatória Nacional - Separadas Obrigatoriamente */}
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-[9.5px] font-mono font-black uppercase text-blue-600 tracking-wider flex items-center gap-1.5">
+              <Users className="h-3 w-3" />
+              1A. LIGAS DE CLUBES FAMOSAS (ELENCOS ATRAENTES)
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+              {Object.values(LEAGUES_DATA).filter(lg => !lg.id.startsWith('selecao_')).map((lg) => {
+                const isActive = activeLeagueId === lg.id;
+                return (
+                  <button
+                    key={lg.id}
+                    onClick={() => setActiveLeagueId(lg.id)}
+                    className={`p-3 rounded-sm border text-left transition-all duration-200 cursor-pointer flex flex-col justify-between h-[82px] ${
+                      isActive 
+                        ? 'border-slate-950 bg-slate-950 text-white ring-2 ring-slate-950/25 shadow-md scale-102' 
+                        : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-350 text-slate-800'
+                    }`}
+                  >
+                    <div className="text-xl leading-none">{lg.emoji}</div>
+                    <div>
+                      <h3 className="font-display font-extrabold text-[11px] leading-tight select-none truncate">
+                        {lg.name}
+                      </h3>
+                      <span className={`text-[8px] font-mono font-bold uppercase mt-0.5 inline-block px-1 rounded-xs ${
+                        isActive ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'
+                      }`}>
+                        {lg.players.length} Atletas
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="space-y-2 pt-1 border-t border-slate-100">
+            <label className="text-[9.5px] font-mono font-black uppercase text-indigo-600 tracking-wider flex items-center gap-1.5">
+              <Trophy className="h-3 w-3" />
+              1B. SELEÇÕES NACIONAIS OFICIAIS (CONVOCATÓRIAS ATUAIS & ATUALIZADAS)
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+              {Object.values(LEAGUES_DATA).filter(lg => lg.id.startsWith('selecao_')).map((lg) => {
+                const isActive = activeLeagueId === lg.id;
+                return (
+                  <button
+                    key={lg.id}
+                    onClick={() => setActiveLeagueId(lg.id)}
+                    className={`p-3 rounded-sm border text-left transition-all duration-200 cursor-pointer flex flex-col justify-between h-[82px] ${
+                      isActive 
+                        ? 'border-indigo-600 bg-indigo-900 text-white ring-2 ring-indigo-900/25 shadow-md scale-102' 
+                        : 'border-slate-200 bg-indigo-50/20 hover:bg-indigo-50/60 hover:border-indigo-300 text-slate-800'
+                    }`}
+                  >
+                    <div className="text-xl leading-none">{lg.emoji}</div>
+                    <div>
+                      <h3 className="font-display font-extrabold text-[11px] leading-tight select-none truncate">
+                        {lg.name}
+                      </h3>
+                      <span className={`text-[8px] font-mono font-bold uppercase mt-0.5 inline-block px-1 rounded-xs ${
+                        isActive ? 'bg-indigo-500/30 text-indigo-100' : 'bg-indigo-100 text-indigo-700'
+                      }`}>
+                        {lg.players.length} Convocados
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
         {/* Informações Auxiliares */}
         <div className={`p-3 rounded-sm border bg-slate-50 text-xs text-slate-600 flex gap-2.5 items-start ${
-          activeLeagueId === 'brasileirao_26' ? 'border-emerald-250/30 bg-emerald-50/30' :
-          activeLeagueId === 'libertadores' ? 'border-amber-250/30 bg-amber-50/30' :
-          activeLeagueId === 'champions_league' ? 'border-blue-250/30 bg-blue-50/30' : 'border-slate-205 bg-slate-50/80'
+          activeLeagueId === 'brasileirao_26' || activeLeagueId === 'selecao_brasil' ? 'border-emerald-250/30 bg-emerald-50/30' :
+          activeLeagueId === 'libertadores' || activeLeagueId === 'selecao_portugal' || activeLeagueId === 'selecao_espanha' ? 'border-amber-250/30 bg-amber-50/30' :
+          activeLeagueId === 'champions_league' || activeLeagueId === 'selecao_franca' || activeLeagueId === 'selecao_argentina' ? 'border-blue-250/30 bg-blue-50/30' : 'border-slate-205 bg-slate-50/80'
         }`}>
           <Info className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
           <p className="leading-tight">
@@ -648,7 +1206,7 @@ export const UltimateLigas: React.FC = () => {
           )}
 
           {/* O Campo de Futebol Visual */}
-          <div className="relative w-full aspect-[4/5] bg-gradient-to-b from-slate-950 to-slate-900 border border-white/10 rounded-sm overflow-hidden shadow-2xl select-none">
+          <div id="squad-tactical-field" className="relative w-full aspect-[4/5] bg-gradient-to-b from-slate-950 to-slate-900 border border-white/10 rounded-sm overflow-hidden shadow-2xl select-none">
             
             {/* Visual Striped Grass Overlay */}
             <div className="absolute inset-0 grid grid-rows-10 pointer-events-none opacity-[0.05]">

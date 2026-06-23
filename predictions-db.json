@@ -1,0 +1,47 @@
+[
+  {
+    "id": "p1",
+    "userId": "user_ney_10",
+    "userName": "Neymar Santos",
+    "championId": "9",
+    "championName": "Brasil",
+    "championEmoji": "🇧🇷",
+    "createdAt": "2026-06-25T11:45:12.708Z"
+  },
+  {
+    "id": "p2",
+    "userId": "user_leo_30",
+    "userName": "Lionel Fan",
+    "championId": "37",
+    "championName": "Argentina",
+    "championEmoji": "🇦🇷",
+    "createdAt": "2026-06-25T10:30:12.708Z"
+  },
+  {
+    "id": "p3",
+    "userId": "user_kylian_7",
+    "userName": "Kylian M.",
+    "championId": "33",
+    "championName": "França",
+    "championEmoji": "🇫🇷",
+    "createdAt": "2026-06-24T18:15:22.708Z"
+  },
+  {
+    "id": "p4",
+    "userId": "user_lucas_26",
+    "userName": "Lucas Silva",
+    "championId": "9",
+    "championName": "Brasil",
+    "championEmoji": "🇧🇷",
+    "createdAt": "2026-06-24T14:46:12.708Z"
+  },
+  {
+    "id": "p5",
+    "userId": "user_alex_13",
+    "userName": "Alex Morgan",
+    "championId": "13",
+    "championName": "Estados Unidos",
+    "championEmoji": "🇺🇸",
+    "createdAt": "2026-06-23T02:52:52.708Z"
+  }
+]

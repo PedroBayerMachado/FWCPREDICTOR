@@ -37,6 +37,7 @@ interface SimulatorContextType {
   simulateEntireCup: () => void;
   resetSimulator: () => void;
   simulatePlayoffPhase: (phase: 'round_of_32' | 'round_of_16' | 'quarter_finals' | 'semi_finals' | 'third_place' | 'final') => void;
+  syncFifaMatches: (fifaMatches?: { id: number; team1Score: number; team2Score: number; status: 'completed' | 'scheduled' }[]) => void;
 
   simulationMode: 'scores' | 'standings';
   setSimulationMode: (mode: 'scores' | 'standings') => void;
@@ -150,10 +151,10 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     });
   }, [thirdPlaceTeams]);
 
-  // 1. CARREGAMENTO INICIAL DO LOCALSTORAGE
+  // 1. CARREGAMENTO INICIAL DO LOCALSTORAGE E SYNC COM BACKEND REAL-TIME
   useEffect(() => {
     // Versão da configuração das seleções para invalidar cache obsoleto do localStorage
-    const TEAMS_VERSION = 'v2_official_groups_2026';
+    const TEAMS_VERSION = 'v4_official_groups_2026_clean';
     const storedVersion = localStorage.getItem('wc_teams_version');
 
     // Carregar nome de usuário e seleção favorita
@@ -168,22 +169,41 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       localStorage.removeItem('wc_fav_champ');
     }
 
-    // Carregar palpites salvos
-    const storedPredictions = localStorage.getItem('wc_predictions');
-    if (storedVersion === TEAMS_VERSION && storedPredictions) {
-      setUserPredictions(JSON.parse(storedPredictions));
-    } else {
-      // Palpites iniciais padrão atualizados para o novo chaveamento mundial
-      const defaultPreds: UserPrediction[] = [
-        { id: 'p1', userName: 'Neymar Santos', championId: '9', championName: 'Brasil', championEmoji: '🇧🇷', createdAt: new Date(Date.now() - 36000000).toISOString() },
-        { id: 'p2', userName: 'Lionel Fan', championId: '37', championName: 'Argentina', championEmoji: '🇦🇷', createdAt: new Date(Date.now() - 72000000).toISOString() },
-        { id: 'p3', userName: 'Kylian M.', championId: '33', championName: 'França', championEmoji: '🇫🇷', createdAt: new Date(Date.now() - 108000000).toISOString() },
-        { id: 'p4', userName: 'Lucas Silva', championId: '9', championName: 'Brasil', championEmoji: '🇧🇷', createdAt: new Date(Date.now() - 150000000).toISOString() },
-        { id: 'p5', userName: 'Alex Morgan', championId: '13', championName: 'Estados Unidos', championEmoji: '🇺🇸', createdAt: new Date(Date.now() - 200000000).toISOString() }
-      ];
-      setUserPredictions(defaultPreds);
-      localStorage.setItem('wc_predictions', JSON.stringify(defaultPreds));
-    }
+    // Carregar palpites salvos inicialmente do backend público
+    const fetchPredictions = async () => {
+      try {
+        const res = await fetch('/api/predictions');
+        if (res.ok) {
+          const list = await res.json();
+          setUserPredictions(list);
+        }
+      } catch (e) {
+        console.error("Erro ao carregar os palpites iniciais:", e);
+      }
+    };
+    fetchPredictions();
+
+    // Iniciar ouvinte em tempo real (Server-Sent Events)
+    const eventSource = new EventSource('/api/predictions/stream');
+    eventSource.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+        if (payload.type === 'new_prediction') {
+          setUserPredictions(prev => {
+            if (prev.some(p => p.id === payload.data.id)) return prev;
+            return [payload.data, ...prev];
+          });
+        } else if (payload.type === 'delete_prediction') {
+          setUserPredictions(prev => prev.filter(p => p.id !== payload.id));
+        }
+      } catch (err) {
+        console.error("Erro processando evento SSE:", err);
+      }
+    };
+    
+    eventSource.onerror = () => {
+      console.warn("EventSource reconectando...");
+    };
 
     // Carregar/reiniciar jogos do simulador baseados na nova versão
     const storedMatches = localStorage.getItem('wc_sim_matches');
@@ -208,6 +228,10 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       localStorage.setItem('wc_sim_matches', JSON.stringify(updated));
       localStorage.setItem('wc_teams_version', TEAMS_VERSION);
     }
+
+    return () => {
+      eventSource.close();
+    };
   }, []);
 
   // 2. SALVAR DADOS DE PERFIL DE PALPITE
@@ -221,29 +245,46 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     localStorage.setItem('wc_fav_champ', id);
   };
 
-  const savePrediction = () => {
+  const savePrediction = async () => {
     if (!userName.trim() || !favoriteChampion) return;
     const selectedTeam = TEAMS.find(t => t.id === favoriteChampion);
     if (!selectedTeam) return;
 
-    const newPrediction: UserPrediction = {
-      id: Math.random().toString(36).substr(2, 9),
-      userName: userName.trim(),
-      championId: selectedTeam.id,
-      championName: selectedTeam.name,
-      championEmoji: selectedTeam.emoji,
-      createdAt: new Date().toISOString()
-    };
-
-    const updated = [newPrediction, ...userPredictions];
-    setUserPredictions(updated);
-    localStorage.setItem('wc_predictions', JSON.stringify(updated));
+    try {
+      const response = await fetch('/api/predictions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userName: userName.toString().trim(),
+          championId: selectedTeam.id,
+          championName: selectedTeam.name,
+          championEmoji: selectedTeam.emoji
+        })
+      });
+      if (response.ok) {
+        const result = await response.json();
+        // Adiciona localmente (SSE também enviará, mas mantemos update otimista seguro)
+        setUserPredictions(prev => {
+          if (prev.some(p => p.id === result.id)) return prev;
+          return [result, ...prev];
+        });
+      }
+    } catch (e) {
+      console.error("Erro ao publicar palpite no feed em tempo real:", e);
+    }
   };
 
-  const deletePrediction = (id: string) => {
-    const updated = userPredictions.filter(p => p.id !== id);
-    setUserPredictions(updated);
-    localStorage.setItem('wc_predictions', JSON.stringify(updated));
+  const deletePrediction = async (id: string) => {
+    try {
+      const response = await fetch(`/api/predictions/${id}`, {
+        method: 'DELETE'
+      });
+      if (response.ok) {
+        setUserPredictions(prev => prev.filter(p => p.id !== id));
+      }
+    } catch (e) {
+      console.error("Erro ao deletar palpite em tempo real:", e);
+    }
   };
 
   // 3. CALCULO E ATUALIZAÇÃO DA CLASSIFICAÇÃO DOS GRUPOS
@@ -1049,6 +1090,90 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     });
   };
 
+  const syncFifaMatches = (fifaMatches?: { id: number; team1Score?: number; team2Score?: number; status: 'completed' | 'scheduled' }[]) => {
+    // Forçar o modo de simulação para 'scores' para exibir os gols reais
+    setSimulationMode('scores');
+
+    setMatches(prevMatches => {
+      const baseMatches = prevMatches.length > 0 ? prevMatches : getInitialMatches();
+      const simulatedToday = "2026-06-19";
+      
+      const finalFifaMatches = (fifaMatches && fifaMatches.length > 0) ? fifaMatches : baseMatches.filter(m => m.phase === 'group').map(m => {
+        const t1 = TEAMS.find(t => t.id === m.team1Id);
+        const t2 = TEAMS.find(t => t.id === m.team2Id);
+        const r1 = t1 ? t1.rating : 75;
+        const r2 = t2 ? t2.rating : 75;
+        
+        const t1IdNum = parseInt(m.team1Id || '0') || 0;
+        const t2IdNum = parseInt(m.team2Id || '0') || 0;
+        
+        // Semente determinística do placar baseada nos ratings
+        const seed = (t1IdNum * 17 + t2IdNum * 31 + m.id * 53) % 100;
+        const diff = r1 - r2;
+        
+        let team1Score = 0;
+        let team2Score = 0;
+        
+        if (diff > 12) {
+          team1Score = seed % 3 === 0 ? 3 : (seed % 3 === 1 ? 2 : 4);
+          team2Score = seed % 4 === 0 ? 1 : 0;
+        } else if (diff > 5) {
+          team1Score = seed % 3 === 0 ? 2 : (seed % 3 === 1 ? 1 : 3);
+          team2Score = seed % 3 === 0 ? 1 : 0;
+        } else if (diff < -12) {
+          team1Score = seed % 4 === 0 ? 1 : 0;
+          team2Score = seed % 3 === 0 ? 3 : (seed % 3 === 1 ? 2 : 4);
+        } else if (diff < -5) {
+          team1Score = seed % 3 === 0 ? 1 : 0;
+          team2Score = seed % 3 === 0 ? 2 : (seed % 3 === 1 ? 1 : 3);
+        } else {
+          if (seed % 3 === 0) {
+            team1Score = seed % 2 === 0 ? 1 : 2;
+            team2Score = team1Score;
+          } else if (seed % 3 === 1) {
+            team1Score = seed % 2 === 0 ? 2 : 1;
+            team2Score = team1Score - 1;
+          } else {
+            team2Score = seed % 2 === 0 ? 2 : 1;
+            team1Score = team2Score - 1;
+          }
+        }
+
+        const isPlayed = m.date <= simulatedToday;
+
+        return {
+          id: m.id,
+          team1Score: isPlayed ? team1Score : undefined,
+          team2Score: isPlayed ? team2Score : undefined,
+          status: isPlayed ? 'completed' as const : 'scheduled' as const
+        };
+      });
+
+      let updatedMatches = baseMatches.map(m => {
+        const live = finalFifaMatches.find(fm => fm.id === m.id);
+        if (live) {
+          const isComplete = live.status === 'completed';
+          const calculatedMotm = isComplete && m.team1Id && m.team2Id && live.team1Score !== undefined && live.team2Score !== undefined
+            ? generateMotm(m.team1Id, m.team2Id, live.team1Score, live.team2Score, false)
+            : undefined;
+
+          return {
+            ...m,
+            team1Score: live.team1Score,
+            team2Score: live.team2Score,
+            status: live.status,
+            motm: calculatedMotm
+          } as Match;
+        }
+        return m;
+      });
+
+      updatedMatches = ensurePlayoffStructure(updatedMatches);
+      localStorage.setItem('wc_sim_matches', JSON.stringify(updatedMatches));
+      return updatedMatches;
+    });
+  };
+
   return (
     <SimulatorContext.Provider
       value={{
@@ -1071,6 +1196,7 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         simulateEntireCup,
         resetSimulator,
         simulatePlayoffPhase,
+        syncFifaMatches,
         simulationMode,
         setSimulationMode,
         groupStandingsOrder,

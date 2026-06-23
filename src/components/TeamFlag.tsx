@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 
 // Classificação e Mapeamento dos códigos FIFA (3 letras) para ISO 3166-1-alpha-2 (2 letras) da Copa do Mundo
 const FIFA_TO_ISO_MAP: Record<string, string> = {
@@ -84,6 +84,7 @@ export const TeamFlag: React.FC<TeamFlagProps> = ({
   className = '', 
   size = 'md' 
 }) => {
+  const [imgError, setImgError] = useState(false);
   const cleanCode = code ? code.toUpperCase() : '';
   const isoCode = FIFA_TO_ISO_MAP[cleanCode] || 'un'; // Fallback para bandeira ONU/genérica se não houver mapeamento
 
@@ -98,22 +99,27 @@ export const TeamFlag: React.FC<TeamFlagProps> = ({
 
   const selectedSize = sizeClasses[size] || sizeClasses.md;
 
-  // Adiciona referrerPolicy="no-referrer" como solicitado nas diretrizes de imagens
+  const initials = cleanCode.slice(0, 2);
+
   return (
-    <div className={`relative inline-flex items-center justify-center flex-shrink-0 bg-slate-950 border border-white/20 rounded-xs shadow-md overflow-hidden ${selectedSize} ${className}`}>
-      <img
-        src={`https://flagcdn.com/w80/${isoCode}.png`}
-        srcSet={`https://flagcdn.com/w80/${isoCode}.png 2x`}
-        alt={`Bandeira oficial da seleção ${name}`}
-        referrerPolicy="no-referrer"
-        loading="lazy"
-        className="w-full h-full object-cover"
-        onError={(e) => {
-          // Fallback para uma cor de preenchimento neutra e iniciais se falhar
-          const target = e.target as HTMLImageElement;
-          target.style.display = 'none';
-        }}
-      />
+    <div className={`relative inline-flex items-center justify-center flex-shrink-0 bg-slate-900 border border-white/20 rounded-xs shadow-md overflow-hidden ${selectedSize} ${className}`}>
+      {!imgError ? (
+        <img
+          src={`https://flagcdn.com/w80/${isoCode}.png`}
+          srcSet={`https://flagcdn.com/w80/${isoCode}.png 2x`}
+          alt={`Bandeira oficial da seleção ${name}`}
+          referrerPolicy="no-referrer"
+          loading="lazy"
+          className="w-full h-full object-cover"
+          onError={() => {
+            setImgError(true);
+          }}
+        />
+      ) : (
+        <span className="font-mono font-bold text-[9px] text-slate-300 pointer-events-none select-none">
+          {initials}
+        </span>
+      )}
     </div>
   );
 };

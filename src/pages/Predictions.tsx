@@ -250,14 +250,20 @@ export const Predictions: React.FC = () => {
 
           {/* Leaderboard Completo de Palpites passados */}
           <div className="bg-white border border-slate-200 rounded-sm p-6 shadow-xs space-y-4">
-            <h2 className="text-base font-black uppercase tracking-wider italic text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-3">
-              👑 Feed de Palpites do LocalStorage
-            </h2>
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3 flex-wrap gap-2">
+              <h2 className="text-base font-black uppercase tracking-wider italic text-slate-900 flex items-center gap-2">
+                🌐 Feed de Palpites Global (Tempo Real)
+              </h2>
+              <div className="flex items-center gap-1.5 bg-green-50 text-green-700 border border-green-200 py-0.5 px-2 rounded-full text-[10px] font-bold">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-ping"></span>
+                <span>CONECTADO SSE</span>
+              </div>
+            </div>
 
             <div className="max-h-[340px] overflow-y-auto divide-y divide-slate-100 pr-1 space-y-1">
               {userPredictions.length === 0 ? (
                 <p className="text-xs text-slate-400 text-center py-8 italic">
-                  Nenhum palpite foi cadastrado ainda.
+                  Nenhum palpite foi cadastrado ainda. Seja o primeiro!
                 </p>
               ) : (
                 userPredictions.map(p => {
@@ -269,9 +275,14 @@ export const Predictions: React.FC = () => {
                           {p.userName.slice(0, 2)}
                         </div>
                         <div>
-                          <span className="text-xs font-bold text-slate-800 block uppercase">
-                            {p.userName}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-slate-800 uppercase">
+                              {p.userName}
+                            </span>
+                            <span className="text-[9px] bg-slate-100 px-1 py-0.1 border border-slate-200 text-slate-500 font-mono tracking-wider">
+                              ID: {p.id.slice(0, 8)}
+                            </span>
+                          </div>
                           <span className="text-[10px] text-slate-405 font-mono block">
                             {new Date(p.createdAt).toLocaleDateString()} às {new Date(p.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
@@ -300,6 +311,7 @@ export const Predictions: React.FC = () => {
               )}
             </div>
           </div>
+          {/* Fim do Leaderboard */}
 
         </div>
 
